@@ -76,34 +76,29 @@ export DASHSCOPE_API_KEY="<你的百炼 key>"
 
 ## 第二步之二 · RAG 对话前端　（app.py，streamlit run app.py）
 
-要求：支持双模型切换（通义千问 + 杏林） · RAG/直接回答切换开关 · 流式逐字输出 · 引用栏显示文献 + 相似度 + 可展开查看全文 · 思考过程可折叠且字体浅灰 · 思考完自动折叠再出正式回答 · 只依据资料并标来源。
+要求：RAG/直接回答切换开关 · 流式逐字输出 · 引用栏显示文献 + 相似度 + 可展开查看全文 · 思考过程可折叠且字体浅灰 · 思考完自动折叠再出正式回答 · 只依据资料并标来源。
 
 环境变量：
 ```bash
 export DASHSCOPE_API_KEY="<通义百炼 key>"    # 用于 qwen3.7-plus + text-embedding-v4
-export XINLIN_API_KEY="<杏林 key>"           # 用于中医专业模型
 ```
 
 > 用 Streamlit 写单文件 app.py 做中医医案 RAG 问答网页（只用 streamlit + openai + numpy，读 kb.pkl；检索和拼 prompt 自己写，不要 LangChain / 向量数据库）：
 >
 > ① 自己写 retrieve(q, k=5)：pickle.load(kb.pkl) 拿到向量矩阵与原文，用 text-embedding-v4（通义百炼）把问题嵌入，与矩阵做余弦相似度（numpy 点积 + argsort 取 top-k），返回 top-k 医案、来源 txt_filename、相似度分数；
 > ② 左侧主区是对话，右侧固定一个「引用栏」：列出本次回答引用了哪些文献（txt_filename + 医案类型）及各自相似度（百分比 + 进度条），每条文献下方有「📖 查看全文」expander，点击可展开查看完整医案原文；
-> ③ **支持两个对话模型切换**：侧边栏用 radio 选择，只显示模型名（`qwen3.7-plus` 和 `杏林`），不显示描述文字。配置如下：
->    - **qwen3.7-plus**：base_url=`https://dashscope.aliyuncs.com/compatible-mode/v1`，api_key 读 `DASHSCOPE_API_KEY`
->    - **杏林**：base_url=`https://ai.tcmcds.com/v1`，api_key 读 `XINLIN_API_KEY`，model name=`XinLin`
->    切换模型时自动清空对话历史；
-> ④ 两个模型都开启思考（enable_thinking），流式返回：把 reasoning_content 放进可折叠的「💭 思考过程」实时滚动，正式答案 content 在下方逐字流式显示；
-> ⑤ **思考过程的文字样式要与正式回答区分**：用浅灰色（#888）、略小字号（0.9em），通过 HTML `<div style="color: #888; font-size: 0.9em;">` 包裹实现；
-> ⑥ **思考完开始正式回答时自动折叠**：思考阶段 expander 保持展开，一旦收到 content 的第一个 token，立即将思考 expander 折叠（expanded=False），让用户专注看正式回答；
-> ⑦ **RAG / 直接回答切换**：侧边栏加一个 toggle 开关「RAG 模式（检索医案）」，默认开启。开启时先检索医案库再回答；关闭时跳过检索，直接把用户问题发给模型回答（用模型自身知识）。页面标题栏显示当前模式（RAG 模式 / 直接回答），右侧引用栏在关闭时也相应提示；
-> ⑧ 自己拼 prompt：命中医案作参考资料，要求只依据资料作答、句末标【来源：文献名】，资料不足就如实说明；
-> ⑨ base_url / api_key 读环境变量；检索或调用失败要友好提示。侧边栏加一个「🔄 刷新连接」按钮，点击清除缓存的 OpenAI 客户端（解决切换环境变量后 404 报错的问题）；
+> ③ 使用模型 qwen3.7-plus（base_url=`https://dashscope.aliyuncs.com/compatible-mode/v1`，api_key 读 `DASHSCOPE_API_KEY`），开启思考（enable_thinking），流式返回：把 reasoning_content 放进可折叠的「💭 思考过程」实时滚动，正式答案 content 在下方逐字流式显示；
+> ④ **思考过程的文字样式要与正式回答区分**：用浅灰色（#888）、略小字号（0.9em），通过 HTML `<div style="color: #888; font-size: 0.9em;">` 包裹实现；
+> ⑤ **思考完开始正式回答时自动折叠**：思考阶段 expander 保持展开，一旦收到 content 的第一个 token，立即将思考 expander 折叠（expanded=False），让用户专注看正式回答；
+> ⑥ **RAG / 直接回答切换**：侧边栏加一个 toggle 开关「RAG 模式（检索医案）」，默认开启。开启时先检索医案库再回答；关闭时跳过检索，直接把用户问题发给模型回答（用模型自身知识）。页面标题栏显示当前模式（RAG 模式 / 直接回答），右侧引用栏在关闭时也相应提示；
+> ⑦ 自己拼 prompt：命中医案作参考资料，要求只依据资料作答、句末标【来源：文献名】，资料不足就如实说明；
+> ⑧ base_url / api_key 读环境变量；检索或调用失败要友好提示。侧边栏加一个「🔄 刷新连接」按钮，点击清除缓存的 OpenAI 客户端（解决切换环境变量后 404 报错的问题）；
 >
 > 写完 streamlit run app.py 跑起来。建议用以下问题演示：
 > - **正例**（能检索到相关医案）：「面瘫口眼歪斜如何辨证」「慢性肺源性心脏病 胸闷气喘」「老年痴呆 记忆力减退」
 > - **反例**（数据库无相关内容，AI 会如实说明资料不足）：「半夏泻心汤主治什么证」
 
-产出：`app.py`，浏览器里的流式问答页面，支持双模型切换 + RAG/直接回答切换。
+产出：`app.py`，浏览器里的流式问答页面，支持 RAG/直接回答切换。
 
 **🎯 现场演示查询速查（直接复制到输入框）：**
 
